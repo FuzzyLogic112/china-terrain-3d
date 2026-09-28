@@ -1,0 +1,19 @@
+# GitHub Pages 从 gh-pages 分支发布。每次推送到 main，自动把 main 同步到 gh-pages。
+name: 同步到 gh-pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: sync-pages
+  cancel-in-progress: true
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git push --force origin HEAD:gh-pages

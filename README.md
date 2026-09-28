@@ -41,6 +41,8 @@
 
 ## 开发
 
+网站由 GitHub Pages 从 `gh-pages` 分支发布。推送到 `main` 后，Actions 会自动把 `main` 同步到 `gh-pages`，约 1 分钟后线上更新。
+
 ```bash
 npm install          # 安装 esbuild 与 three.js
 npm run build        # src/main.js → assets/app.js
