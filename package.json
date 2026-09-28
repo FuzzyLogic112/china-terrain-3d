@@ -1,0 +1,16 @@
+{
+  "name": "china-terrain-3d",
+  "version": "1.0.0",
+  "private": true,
+  "description": "中国三维地势图：可交互的 3D 地形网页，用于地理教学与研究",
+  "license": "MIT",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --legal-comments=none --outfile=assets/app.js",
+    "data": "python3 tools/build_data.py",
+    "serve": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0",
+    "three": "0.160.0"
+  }
+}

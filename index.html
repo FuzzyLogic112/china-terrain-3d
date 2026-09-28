@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>中国三维地势图</title>
+<meta name="description" content="可交互的中国三维地形图：真实高程、三级阶梯、地形剖面、水位模拟与地形区标注，用于地理教学与研究。">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/noto-serif-sc-subset.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"Terrain Serif";src:url("assets/fonts/noto-serif-sc-subset.woff2") format("woff2");font-weight:500 800;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url("assets/fonts/ibm-plex-mono-400.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url("assets/fonts/ibm-plex-mono-500.woff2") format("woff2");font-weight:500;font-display:swap}
+[hidden]{display:none!important}
+:root{
+  color-scheme:light;
+  --scene:#DCE3DF; --scene-hi:#EEF2EF; --bg:#DCE3DF;
+  --panel:rgba(248,249,246,.93); --panel-solid:#F8F9F6;
+  --ink:#1B2320; --ink-2:#47534D; --muted:#76827C; --rule:#D2D9D4;
+  --chip:#ECF0EC; --chip-hover:#E0E6E1;
+  --accent:#1F5C8B; --accent-ink:#FFFFFF;
+  --vermilion:#C83A22; --halo:rgba(250,251,248,.95);
+  --l-land:#5A391B; --l-mtn:#3B2814; --l-water:#1A5A8C; --l-city:#1B2320;
+  --shadow:0 1px 2px rgba(20,32,26,.08),0 10px 28px rgba(20,32,26,.12);
+  --dim-tint:#EEF1ED; --dim-amt:.58;
+  --f-serif:"Terrain Serif","Noto Serif SC","Source Han Serif SC","Songti SC","STSong","SimSun",serif;
+  --f-sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC","Source Han Sans SC",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --prof-h:260px; --panel-w:312px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --scene:#0D1110; --scene-hi:#1A211F; --bg:#0D1110;
+    --panel:rgba(20,25,24,.92); --panel-solid:#161C1A;
+    --ink:#E3E9E5; --ink-2:#B1BCB6; --muted:#85908A; --rule:#2A3330;
+    --chip:#1D2422; --chip-hover:#26302D;
+    --accent:#7DB2DF; --accent-ink:#0D1110;
+    --vermilion:#FF6F4F; --halo:rgba(8,12,11,.9);
+    --l-land:#F3DDBA; --l-mtn:#F6E8D2; --l-water:#A3D0F5; --l-city:#E3E9E5;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35);
+    --dim-tint:#343B38; --dim-amt:.62;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --scene:#0D1110; --scene-hi:#1A211F; --bg:#0D1110;
+  --panel:rgba(20,25,24,.92); --panel-solid:#161C1A;
+  --ink:#E3E9E5; --ink-2:#B1BCB6; --muted:#85908A; --rule:#2A3330;
+  --chip:#1D2422; --chip-hover:#26302D;
+  --accent:#7DB2DF; --accent-ink:#0D1110;
+  --vermilion:#FF6F4F; --halo:rgba(8,12,11,.9);
+  --l-land:#F3DDBA; --l-mtn:#F6E8D2; --l-water:#A3D0F5; --l-city:#E3E9E5;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.35);
+  --dim-tint:#343B38; --dim-amt:.62;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{height:100%}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-sans);overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font-family:inherit}
+#app{position:relative;height:100%;overflow:hidden;background:radial-gradient(120% 95% at 40% 28%,var(--scene-hi) 0%,var(--scene) 72%)}
+#app canvas.gl{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2}
+
+/* map labels */
+.lbl{position:absolute;left:0;top:0;white-space:nowrap;visibility:hidden;line-height:1.15;
+  text-shadow:0 0 2px var(--halo),0 0 2px var(--halo),0 0 5px var(--halo),0 0 9px var(--halo)}
+.lbl.show{visibility:visible}
+.lbl.click{pointer-events:auto;cursor:pointer}
+.lbl.click:hover{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.t-region{font:700 15px/1.2 var(--f-serif);letter-spacing:.34em;color:var(--l-land)}
+.t-region.s{font-size:13px;letter-spacing:.22em}
+.t-mtn{font:600 12px/1.2 var(--f-serif);letter-spacing:.16em;color:var(--l-mtn);font-style:normal}
+.t-peak{font:600 12px/1.2 var(--f-serif);color:var(--l-mtn);display:flex;align-items:center;gap:4px}
+.t-peak i{display:block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid var(--l-mtn);flex:none}
+.t-peak.low i{border-bottom:0;border-top:8px solid var(--l-water)}
+.t-peak em{font:500 11px/1 var(--f-mono);font-style:normal;color:var(--ink-2)}
+.t-sea{font:600 15px/1.2 var(--f-serif);letter-spacing:.6em;color:var(--l-water)}
+.t-sea.s{font-size:12.5px;letter-spacing:.3em}
+.t-river{font:600 12px/1.2 var(--f-serif);letter-spacing:.24em;color:var(--l-water)}
+.t-lake{font:500 11px/1.2 var(--f-serif);letter-spacing:.08em;color:var(--l-water)}
+.t-city{font:500 12px/1.2 var(--f-sans);color:var(--l-city);display:flex;align-items:center;gap:4px}
+.t-city i{display:block;width:8px;height:8px;border-radius:50%;background:var(--panel-solid);border:2px solid var(--l-city);flex:none}
+.t-city.cap i{width:10px;height:10px;border-color:var(--vermilion);box-shadow:inset 0 0 0 2px var(--panel-solid);background:var(--vermilion)}
+.t-tag{font:700 12px/1 var(--f-sans);color:#fff;padding:5px 8px;border-radius:3px;text-shadow:none;letter-spacing:.06em;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.t-pin{font:700 11px/20px var(--f-mono);color:#fff;background:var(--vermilion);width:22px;height:22px;text-align:center;border-radius:50%;border:2px solid #fff;text-shadow:none;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.t-pin.cur{width:12px;height:12px;border-width:2px;font-size:0}
+
+/* header + readout */
+.brand{position:absolute;top:16px;left:16px;z-index:4;pointer-events:none;max-width:calc(100% - var(--panel-w) - 48px)}
+.brand h1{margin:0;font:700 23px/1.15 var(--f-serif);letter-spacing:.14em;color:var(--ink);text-wrap:balance;
+  text-shadow:0 0 3px var(--halo),0 0 8px var(--halo)}
+.brand p{margin:5px 0 0;font:500 11.5px/1.45 var(--f-sans);color:var(--ink-2);letter-spacing:.03em;
+  text-shadow:0 0 3px var(--halo),0 0 6px var(--halo)}
+.brand p b{font:500 11.5px var(--f-mono);color:var(--accent)}
+.readout{position:absolute;top:78px;left:16px;z-index:4;display:grid;grid-template-columns:auto 1fr;gap:3px 14px;
+  padding:9px 12px;background:var(--panel);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border:1px solid var(--rule);border-radius:8px;box-shadow:var(--shadow);font-size:12px;min-width:220px}
+.readout .k{color:var(--muted);letter-spacing:.12em}
+.readout .v{font:500 12.5px/1.5 var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink);text-align:right}
+.readout .v.cn{font-family:var(--f-sans)}
+
+/* panel */
+.panel{position:absolute;top:16px;right:16px;bottom:16px;width:var(--panel-w);z-index:6;display:flex;flex-direction:column;
+  background:var(--panel);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+.panel-head{display:flex;align-items:center;justify-content:space-between;padding:8px 8px 8px 16px;border-bottom:1px solid var(--rule);flex:none}
+.panel-head .ttl{font:700 13px var(--f-serif);letter-spacing:.14em;color:var(--ink)}
+.panel-head .acts{display:flex;gap:2px}
+.panel-body{overflow-y:auto;padding:0 16px 8px;overscroll-behavior:contain}
+.panel section{padding:14px 0 16px;border-bottom:1px solid var(--rule);display:flex;flex-direction:column;gap:11px}
+.panel section:last-child{border-bottom:0}
+.panel h2{margin:0;font:700 11px/1 var(--f-sans);letter-spacing:.2em;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{appearance:none;border:1px solid var(--rule);background:var(--chip);color:var(--ink);font:500 12.5px/1 var(--f-sans);
+  padding:7px 10px;border-radius:6px;cursor:pointer;transition:background .15s}
+.chip:hover{background:var(--chip-hover)}
+.chip.sm{font-size:12px;padding:6px 8px}
+.chip .mono{font-family:var(--f-mono);font-size:11.5px}
+.field{display:grid;grid-template-columns:1fr auto;align-items:center;gap:7px 10px}
+.field>label,.field>.flabel{font-size:13px;color:var(--ink)}
+.field output{font:500 12px var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums}
+.field>input[type=range],.field>.seg{grid-column:1/-1}
+input[type=range]{width:100%;accent-color:var(--accent);margin:0;height:18px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border:1px solid var(--rule);border-radius:6px;overflow:hidden;background:var(--chip)}
+.seg button{appearance:none;border:0;background:transparent;color:var(--ink-2);font:500 12.5px/1 var(--f-sans);padding:8px 4px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--rule)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.switch{display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer;width:fit-content}
+.switch input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.layers{display:grid;gap:8px}
+.layer{display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer}
+.layer input{accent-color:var(--accent);width:15px;height:15px;margin:0;flex:none}
+.layer .sw{width:22px;flex:none;border-top:3px solid currentColor;margin-left:auto}
+.layer .sw.dash{border-top-style:dashed}
+.layer .sw.txt{border:0;text-align:right;font:700 12px/1 var(--f-serif);letter-spacing:.1em}
+.note{margin:0;font-size:12px;color:var(--muted);line-height:1.6}
+.btn{appearance:none;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font:600 13px/1 var(--f-sans);
+  padding:10px 12px;border-radius:6px;cursor:pointer;width:100%}
+.btn.on{background:var(--vermilion);border-color:var(--vermilion);color:#fff}
+.icon-btn{appearance:none;border:0;background:transparent;color:var(--ink-2);width:32px;height:32px;border-radius:6px;cursor:pointer;display:grid;place-items:center}
+.icon-btn:hover{background:var(--chip-hover);color:var(--ink)}
+.icon-btn svg{width:17px;height:17px}
+.about p{margin:0;font-size:12px;line-height:1.65;color:var(--ink-2)}
+.about p+p{margin-top:6px}
+.about code{font:11.5px var(--f-mono)}
+.about a{color:var(--accent);text-underline-offset:3px}
+button:focus-visible,input:focus-visible,.lbl.click:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.fab{position:absolute;top:16px;right:16px;z-index:6;appearance:none;display:flex;align-items:center;gap:8px;
+  border:1px solid var(--rule);background:var(--panel);color:var(--ink);font:600 13px/1 var(--f-sans);padding:10px 14px;border-radius:8px;
+  box-shadow:var(--shadow);cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.fab svg{width:16px;height:16px}
+
+/* legend */
+.legend{position:absolute;left:16px;bottom:16px;z-index:4;padding:10px 12px 10px;background:var(--panel);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--rule);border-radius:8px;box-shadow:var(--shadow);transition:bottom .25s}
+.legend h3{margin:0 0 7px;font:700 10.5px/1 var(--f-sans);letter-spacing:.18em;color:var(--muted)}
+.legend canvas{display:block}
+#app.has-profile .legend{display:none}
+
+/* profile */
+.profile{position:absolute;left:16px;right:calc(var(--panel-w) + 32px);bottom:16px;height:var(--prof-h);z-index:5;
+  background:var(--panel);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;overflow:hidden}
+#app.panel-closed .profile{right:16px}
+.prof-head{display:flex;align-items:center;gap:12px;padding:6px 6px 2px 14px;flex:none}
+.prof-head strong{font:700 13px/1 var(--f-serif);letter-spacing:.14em;flex:none}
+.prof-meta{font:11.5px/1.3 var(--f-mono);color:var(--ink-2);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prof-wrap{position:relative;flex:1;min-height:0}
+.prof-wrap canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+.prof-tip{position:absolute;top:30px;padding:5px 8px;background:var(--panel-solid);border:1px solid var(--rule);border-radius:5px;
+  font:11.5px/1.45 var(--f-mono);color:var(--ink);pointer-events:none;white-space:nowrap;box-shadow:var(--shadow)}
+
+/* info card */
+.card{position:absolute;left:16px;top:200px;width:310px;max-width:calc(100% - 32px);z-index:7;background:var(--panel);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--shadow);padding:14px 16px 15px}
+.card .kind{font:700 10.5px/1 var(--f-sans);letter-spacing:.22em;color:var(--muted)}
+.card h3{margin:6px 0 7px;font:700 19px/1.25 var(--f-serif);letter-spacing:.1em;padding-right:26px}
+.card p{margin:0;font-size:13px;line-height:1.75;color:var(--ink-2)}
+.card .coord{margin-top:9px;font:11.5px var(--f-mono);color:var(--muted)}
+.card .close{position:absolute;top:8px;right:8px}
+
+.hint{position:absolute;left:calc((100% - var(--panel-w) - 32px)/2);bottom:16px;transform:translateX(-50%);z-index:4;
+  padding:7px 14px;border-radius:999px;background:var(--panel);border:1px solid var(--rule);font-size:12px;color:var(--ink-2);
+  box-shadow:var(--shadow);white-space:nowrap;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#app.panel-closed .hint{left:50%}
+.hint.pick{background:var(--vermilion);border-color:var(--vermilion);color:#fff;font-weight:600}
+#app.has-profile .hint:not(.pick){display:none}
+#app.has-profile .hint.pick{bottom:calc(var(--prof-h) + 28px)}
+
+.loading{position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:var(--scene);
+  font:600 15px/1.6 var(--f-serif);letter-spacing:.24em;color:var(--ink-2);text-align:center;padding-inline:16px}
+.loading small{display:block;font:12px var(--f-sans);letter-spacing:.04em;color:var(--muted);margin-top:4px}
+
+@media (max-width:760px){
+  :root{--prof-h:220px}
+  .brand{top:12px;left:12px;max-width:calc(100% - 150px)}
+  .brand h1{font-size:18px;letter-spacing:.1em}
+  .brand p{display:none}
+  .readout{top:46px;left:12px;grid-template-columns:auto auto auto auto;min-width:0;gap:2px 8px;padding:6px 9px;font-size:11px}
+  .readout .v{font-size:11px}
+  .panel{top:auto;left:0;right:0;bottom:0;width:auto;max-height:64%;border-radius:14px 14px 0 0;border-bottom:0;
+    padding-bottom:env(safe-area-inset-bottom,0px)}
+  .fab{top:12px;right:12px;padding:9px 12px}
+  .profile{left:8px;right:8px !important;bottom:8px}
+  #app.has-profile .legend{display:none}
+  .legend{left:12px;bottom:12px;padding:8px 9px}
+  .hint{display:none}
+  .hint.pick{display:block;left:50% !important;bottom:auto !important;top:96px}
+  .card{top:auto;bottom:12px;left:8px;right:8px;width:auto}
+  #app.has-profile .card{bottom:calc(var(--prof-h) + 16px)}
+}
+@media (prefers-reduced-motion: reduce){ .legend{transition:none} }
+</style>
+</head>
+<body>
+<noscript><div style="padding:24px;font-size:15px">本页面需要启用 JavaScript 才能显示三维地形。</div></noscript>
+<div id="app">
+  <div id="labels"></div>
+
+  <header class="brand">
+    <h1>中国三维地势图</h1>
+    <p>ETOPO1 高程 10′ 网格 · Albers 等积圆锥投影（25°N / 47°N）· 垂直夸张 <b id="exagTag">22×</b></p>
+  </header>
+
+  <div class="readout" id="readout" aria-live="polite">
+    <span class="k">经度</span><span class="v" id="rLon">—</span>
+    <span class="k">纬度</span><span class="v" id="rLat">—</span>
+    <span class="k">海拔</span><span class="v" id="rEle">—</span>
+    <span class="k">位置</span><span class="v cn" id="rReg">移动鼠标查看</span>
+  </div>
+
+  <aside class="panel" id="panel" aria-label="工具与图层">
+    <div class="panel-head">
+      <span class="ttl">工具与图层</span>
+      <div class="acts">
+        <button class="icon-btn" id="btnFull" title="全屏（适合课堂投影）" aria-label="全屏">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 7.5V3h4.5M17 7.5V3h-4.5M3 12.5V17h4.5M17 12.5V17h-4.5"/></svg>
+        </button>
+        <button class="icon-btn" id="btnCollapse" title="收起面板" aria-label="收起面板">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <section>
+        <h2>视角</h2>
+        <div class="chips" id="views"></div>
+        <label class="switch"><input type="checkbox" id="autoRotate"> 自动旋转</label>
+      </section>
+
+      <section>
+        <h2>地形表现</h2>
+        <div class="field">
+          <label for="exag">垂直夸张</label><output id="exagOut" for="exag">22×</output>
+          <input type="range" id="exag" min="1" max="60" step="1" value="22">
+        </div>
+        <div class="field">
+          <span class="flabel">设色方案</span><span></span>
+          <div class="seg" id="scheme" role="group" aria-label="设色方案"></div>
+        </div>
+        <div class="field">
+          <span class="flabel">等高线</span><span></span>
+          <div class="seg" id="contour" role="group" aria-label="等高线间距"></div>
+        </div>
+        <div class="field">
+          <label for="shade">山体晕渲</label><output id="shadeOut" for="shade">85%</output>
+          <input type="range" id="shade" min="0" max="100" step="1" value="85">
+        </div>
+        <label class="switch"><input type="checkbox" id="dim" checked> 突出中国范围</label>
+        <label class="switch"><input type="checkbox" id="bathy"> 显示海底地形</label>
+      </section>
+
+      <section>
+        <h2>水位模拟</h2>
+        <div class="field">
+          <label for="sea">海平面变化</label><output id="seaOut" for="sea">0 m</output>
+          <input type="range" id="sea" min="0" max="1000" step="1" value="100">
+        </div>
+        <div class="chips" id="seaPresets"></div>
+        <p class="note">只有与海洋连通的低地会被淹没，塔里木、四川等封闭盆地不会“倒灌”。末次冰期海平面约低 120 m，渤海、黄海大部露出成陆。</p>
+      </section>
+
+      <section>
+        <h2>图层</h2>
+        <div class="layers" id="layers"></div>
+      </section>
+
+      <section>
+        <h2>地形剖面</h2>
+        <button class="btn" id="btnPick">在地图上点选两点</button>
+        <div class="chips" id="profPresets"></div>
+        <p class="note">剖面图会自动标出沿线的地形区与阶梯分界。在剖面图上移动鼠标，可在三维地图上同步定位。</p>
+      </section>
+
+      <section class="about">
+        <h2>数据与说明</h2>
+        <p>高程：NOAA ETOPO1，经 Fatiando 重采样为 10′ 网格（约 18 km）。网格会削平尖峰，本图中珠峰一带约 6000 m，读数宜看作区域平均高度。</p>
+        <p>行政界线：ECharts 中国地图数据；河流、湖泊、邻国界线与南海断续线：Natural Earth。三级阶梯分界线、秦岭—淮河线为教学示意。</p>
+        <p>本图用于课堂演示与教学研究，边界仅为示意；公开出版请使用自然资源部标准地图。</p>
+        <p>源代码与数据处理脚本：<a href="https://github.com/FuzzyLogic112/china-terrain-3d" target="_blank" rel="noopener">GitHub · china-terrain-3d</a></p>
+      </section>
+    </div>
+  </aside>
+
+  <button class="fab" id="fab" hidden>
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+    工具与图层
+  </button>
+
+  <div class="legend" id="legend">
+    <h3 id="legendTitle">海拔（m）</h3>
+    <canvas id="legendCanvas" width="128" height="200"></canvas>
+  </div>
+
+  <section class="profile" id="profile" hidden aria-label="地形剖面图">
+    <div class="prof-head">
+      <strong>地形剖面</strong>
+      <span class="prof-meta" id="profMeta"></span>
+      <button class="icon-btn" id="profClose" title="关闭剖面" aria-label="关闭剖面">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+      </button>
+    </div>
+    <div class="prof-wrap" id="profWrap">
+      <canvas id="profCanvas"></canvas>
+      <div class="prof-tip" id="profTip" hidden></div>
+    </div>
+  </section>
+
+  <div class="card" id="card" hidden role="dialog" aria-labelledby="cardTitle">
+    <button class="icon-btn close" id="cardClose" aria-label="关闭">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+    </button>
+    <div class="kind" id="cardKind"></div>
+    <h3 id="cardTitle"></h3>
+    <p id="cardText"></p>
+    <div class="coord" id="cardCoord"></div>
+  </div>
+
+  <div class="hint" id="hint">左键拖动旋转 · 右键拖动平移 · 滚轮缩放 · 点击地名查看介绍</div>
+
+  <div class="loading" id="loading"><div>正在生成三维地形<small>正在读取高程数据</small></div></div>
+</div>
+
+<script>
+setTimeout(function(){ if(!window.__terrainReady){ var l=document.getElementById('loading'); if(l) l.innerHTML='<div>三维地形未能加载<small>请刷新页面重试。需要支持 WebGL 的浏览器：Chrome、Edge、Firefox 或新版 Safari</small></div>'; } }, 25000);
+</script>
+<script src="assets/geo-data.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
