@@ -50,7 +50,8 @@ npm install          # 安装 esbuild 与 three.js
 npm run build        # src/main.js → assets/app.js
 npm run serve        # http://localhost:8000 本地预览
 
-pip install numpy netCDF4 shapely pillow
+# pip install numpy netCDF4 shapely pillow
+uv sync
 npm run data         # 下载原始数据并重新生成 assets/geo-data.js
 ```
 
