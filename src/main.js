@@ -62,7 +62,8 @@ const rgbStr = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
 
 /* ================= state ================= */
 const state = { exag: 22, scheme: 'layered', contour: 0, shade: 0.85, dim: true, bathy: false, sea: 0,
-  layers: { admin: true, rivers: true, regions: true, mountains: true, seas: true, cities: false, steps: false, qinhuai: false, hu: false } };
+  layers: { admin: true, rivers: true, regions: true, mountains: true, seas: true, cities: false, steps: false, qinhuai: false, hu: false,
+    sanshan: false, wuyue: false, buddha4: false, tao4: false } };
 
 /* ================= reference lines (teaching schematics) ================= */
 const STEP12 = [[74.6,38.5],[76.2,38.0],[77.4,37.5],[78.5,37.2],[79.9,36.8],[81.5,36.6],[82.7,36.7],[84.3,37.0],[85.6,37.6],[86.5,37.9],[88.2,38.6],[90,39.0],[92,39.3],[94,39.7],[95.5,39.7],[97,39.6],[98.3,39.35],[99.5,38.9],[101,38.3],[102.4,37.5],[103.3,36.6],[103.6,35.5],[104,34.5],[104.5,33.3],[104.2,32.3],[103.6,31.3],[103,30.3],[102.6,29.3],[102.3,28.3],[101.9,27.3],[101.2,26.2],[100.3,25.3],[99.2,24.5],[98.6,24.1]];
@@ -107,6 +108,23 @@ const INFO = {
   '珠穆朗玛峰':['山峰','世界最高峰，2020 年测定高程 8848.86 m，位于中国与尼泊尔边界。'],
   '乔戈里峰':['山峰','世界第二高峰，海拔 8611 m，位于喀喇昆仑山脉。'],
   '艾丁湖':['洼地','位于吐鲁番盆地，湖面约 −154 m，是我国陆地最低点。'],
+  /* ---------- 名山（三山五岳 / 佛道四大） ---------- */
+  '黄山':['名山','三山之一，位于安徽南部。奇松、怪石、云海、温泉“四绝”，号称“天下第一奇山”，世界文化与自然双遗产。古籍中“三山”亦指蓬莱、方丈、瀛洲三座海上仙山。'],
+  '庐山':['名山','三山之一，位于江西九江。“匡庐奇秀甲天下”，著名避暑胜地，世界文化景观遗产。'],
+  '雁荡山':['名山','三山之一，位于浙江东南部。以灵峰夜景、飞瀑流泉著称。'],
+  '泰山':['名山','东岳，五岳之首，位于山东泰安。古称岱宗、岱山，“五岳独尊”，世界文化与自然双遗产。'],
+  '华山':['名山','西岳，五岳中最高（南峰海拔约 2154.9 m），位于陕西华阴，以“险”著称。易错点：华山是西岳，不是北岳。'],
+  '衡山':['名山','南岳，有“五岳独秀”之称，位于湖南衡阳，主峰祝融峰。'],
+  '恒山':['名山','北岳，位于山西大同，主峰天峰岭，山上有悬空寺。易错点：北岳在山西；河北大茂山是历史上的“古北岳”。'],
+  '嵩山':['名山','中岳，以“峻”著称，位于河南登封，少林寺所在地。'],
+  '五台山':['名山','佛教四大名山之一，位于山西忻州，文殊菩萨道场。若题干为“佛教五大名山”，另有贵州梵净山（弥勒道场）、浙江雪窦山之说。'],
+  '峨眉山':['名山','佛教四大名山之一，位于四川乐山，普贤菩萨道场，世界文化与自然双遗产。'],
+  '普陀山':['名山','佛教四大名山之一，位于浙江舟山，观世音菩萨道场。'],
+  '九华山':['名山','佛教四大名山之一，位于安徽池州，地藏菩萨道场。'],
+  '武当山':['名山','道教四大名山之一，位于湖北十堰，号称“道教第一名山”，真武大帝道场。'],
+  '青城山':['名山','道教四大名山之一，位于四川成都，“青城天下幽”，太上老君（道德天尊）道场。'],
+  '龙虎山':['名山','道教四大名山之一，位于江西鹰潭，天师道祖庭，张天师世居于此。'],
+  '齐云山':['名山','道教四大名山之一，位于安徽黄山，与武当山、龙虎山、青城山并称道教四大名山。'],
 };
 const LINE_INFO = {
   steps:['地势','我国地势西高东低，呈三级阶梯状分布。第一级阶梯为青藏高原，平均海拔 4000 m 以上；第二级阶梯海拔多在 1000–2000 m，以高原、盆地为主；第三级阶梯海拔多在 500 m 以下，以平原、丘陵为主。一、二级分界：昆仑山—祁连山—横断山；二、三级分界：大兴安岭—太行山—巫山—雪峰山。'],
@@ -126,6 +144,15 @@ function L(type, name, lon, lat, pri, extra = {}) { LABELS.push({ type, name, lo
 L('peak', '珠穆朗玛峰', 86.925, 27.988, 99, { layer: 'mountains', val: '8848.86' });
 L('peak', '乔戈里峰', 76.513, 35.881, 72, { layer: 'mountains', val: '8611' });
 L('peak', '艾丁湖', 89.3, 42.63, 60, { layer: 'mountains', val: '−154', low: true });
+// 名山：按类别分图层开关，卡片标题为“类别·山名”
+[['黄山',118.17,30.13,'三山','sanshan'],['庐山',115.99,29.56,'三山','sanshan'],['雁荡山',121.05,28.12,'三山','sanshan'],
+ ['泰山',117.10,36.25,'五岳','wuyue'],['华山',110.09,34.47,'五岳','wuyue'],['衡山',112.70,27.25,'五岳','wuyue'],
+ ['恒山',113.72,39.67,'五岳','wuyue'],['嵩山',113.05,34.49,'五岳','wuyue'],
+ ['五台山',113.60,39.05,'佛教四大名山','buddha4'],['峨眉山',103.40,29.56,'佛教四大名山','buddha4'],
+ ['普陀山',122.38,30.00,'佛教四大名山','buddha4'],['九华山',117.84,30.48,'佛教四大名山','buddha4'],
+ ['武当山',111.00,32.44,'道教四大名山','tao4'],['青城山',103.57,30.90,'道教四大名山','tao4'],
+ ['龙虎山',117.24,28.07,'道教四大名山','tao4'],['齐云山',118.11,29.81,'道教四大名山','tao4']]
+  .forEach(r => L('peak', r[0], r[1], r[2], 74, { layer: r[4], cat: r[3] }));
 [['渤海',119.8,38.9,86],['黄海',123.6,35.3,86],['东海',125.3,29.6,86],['南海',114.8,15.5,86],['太平洋',132.5,24.5,80]].forEach(r => L('sea', r[0], r[1], r[2], r[3], { layer: 'seas' }));
 L('sea', '台湾海峡', 119.6, 24.4, 64, { layer: 'seas', small: true });
 [['长江',112.3,30.25],['黄河',110.55,36.6],['珠江',112.6,23.2],['黑龙江',124.8,53.1],['雅鲁藏布江',88.8,29.15],['澜沧江',100.7,22.3],['怒江',98.85,26.0],['金沙江',101.8,26.4],
@@ -350,7 +377,7 @@ async function main() {
   const labelBox = $('labels');
   for (const lb of LABELS) {
     const el = document.createElement('div'); el.className = 'lbl t-' + lb.type + (lb.small ? ' s' : '') + (lb.cap ? ' cap' : '') + (lb.low ? ' low' : '');
-    if (lb.type === 'peak') el.innerHTML = `<i></i><span>${lb.name}</span><em>${lb.val}</em>`;
+    if (lb.type === 'peak') el.innerHTML = `<i></i><span>${lb.name}</span>${lb.val ? `<em>${lb.val}</em>` : ''}`;
     else if (lb.type === 'city') el.innerHTML = `<i></i><span>${lb.name}</span>`;
     else el.textContent = lb.name;
     if (lb.type === 'tag') el.style.background = lb.color;
@@ -475,7 +502,7 @@ async function main() {
 
   /* ---------- info card ---------- */
   const card = $('card');
-  function showInfo(lb) { const inf = INFO[lb.name]; $('cardKind').textContent = inf[0]; $('cardTitle').textContent = lb.name; $('cardText').textContent = inf[1];
+  function showInfo(lb) { const inf = INFO[lb.name]; $('cardKind').textContent = inf[0]; $('cardTitle').textContent = lb.cat ? `${lb.cat}·${lb.name}` : lb.name; $('cardText').textContent = inf[1];
     $('cardCoord').textContent = `${fmtLon(lb.lon)}  ${fmtLat(lb.lat)}  ·  网格高程约 ${Math.round(sampleH(lb.lon, lb.lat))} m`; card.hidden = false;
     const w = lb.type === 'peak' ? 3.2 : lb.type === 'mtn' ? 9 : (lb.name === '青藏高原' ? 26 : lb.name === '内蒙古高原' ? 18 : 13);
     const sp = new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
@@ -651,6 +678,8 @@ async function main() {
   const LAYERS = [
     ['admin', '国界与省级界线', { sw: '#7B2143' }], ['rivers', '河流与湖泊', { sw: '#1D6AAE' }], ['regions', '地形区名称', { txt: '原', c: 'var(--l-land)' }],
     ['mountains', '山脉与山峰', { txt: '山', c: 'var(--l-mtn)' }], ['seas', '海洋与海峡', { txt: '海', c: 'var(--l-water)' }], ['cities', '省级行政中心', { txt: '●', c: 'var(--l-city)' }],
+    ['sanshan', '三山', { txt: '三', c: 'var(--l-mtn)' }], ['wuyue', '五岳', { txt: '岳', c: 'var(--l-mtn)' }],
+    ['buddha4', '佛教四大名山', { txt: '佛', c: 'var(--l-mtn)' }], ['tao4', '道教四大名山', { txt: '道', c: 'var(--l-mtn)' }],
     ['steps', '三级阶梯分界线', { sw: '#E0561F', dash: true }], ['qinhuai', '秦岭—淮河线', { sw: '#16875A', dash: true }], ['hu', '胡焕庸线', { sw: '#6A3FB5', dash: true }]];
   const layersBox = $('layers');
   LAYERS.forEach(([id, name, o]) => { const lab = document.createElement('label'); lab.className = 'layer';
