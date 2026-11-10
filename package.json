@@ -6,8 +6,8 @@
   "license": "MIT",
   "scripts": {
     "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --legal-comments=none --outfile=assets/app.js",
-    "data": "python3 tools/build_data.py",
-    "serve": "python3 -m http.server 8000"
+    "data": "uv run python tools/build_data.py",
+    "serve": "uv run python -m http.server 8000"
   },
   "devDependencies": {
     "esbuild": "0.24.0",
